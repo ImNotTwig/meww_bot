@@ -1,0 +1,28 @@
+# the prefix you want your bot to use
+prefix = "~"
+# the list of words that you want blacklisted
+word_blacklist = [ ]
+
+# these are your tokens 
+# you HAVE to have a discord_token for this to function
+# the rest of the tokens are optional
+[tokens]
+discord_token = ""
+genius_token = ""
+spotify_id = ""
+spotify_secret = ""
+
+[spam_settings]
+# antispam determines if you have the feature on or not
+antispam = true
+# the spam count is how many times a user can send the same message in a row
+spam_count = 5
+
+[level_system]
+# levels on determines if the level system is on or not 
+levels_on = true
+# xp per message is a range of numbers that you want your users to gain xp from
+xp_per_message = [ 10, 15 ]
+# cooldown_in_seconds is self explantory, its how many seconds a user has to wait to get xp again
+cooldown_in_seconds = 60
+
