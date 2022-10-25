@@ -1,14 +1,5 @@
-use crate::{read_config, Context, Error};
-use poise::serenity_prelude as sr;
-use poise::serenity_prelude::CacheHttp;
-use poise::serenity_prelude::Mentionable;
-use sr::RoleId;
-use serde::{Deserialize, Serialize};
-use std::collections::BTreeMap;
-use std::fs;
-use std::io::Write;
-use chrono::{Utc, Duration};
-use tokio::time::{Duration as TokioDuration, sleep};
+use crate::{Context, Error};
+use tokio::time::{Duration, sleep};
 
 // ---------PURGE COMMAND--------------------------------------------------------------------------------------
 
@@ -30,7 +21,7 @@ pub async fn purge(
             
     ctx.discord().http.delete_message(channel_id.0, message_id).await?;
     let message = ctx.say(format!("{} messages have been deleted!", num_mesg_to_delete)).await?;
-    sleep(TokioDuration::from_millis(5000)).await;
+    sleep(Duration::from_millis(5000)).await;
     message.delete(ctx).await?;
     
     

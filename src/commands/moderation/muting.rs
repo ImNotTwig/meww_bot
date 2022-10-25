@@ -1,14 +1,13 @@
 use crate::{read_config, Context, Error};
 use poise::serenity_prelude as sr;
 use poise::serenity_prelude::CacheHttp;
-use poise::serenity_prelude::Mentionable;
 use sr::RoleId;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::fs;
 use std::io::Write;
 use chrono::{Utc, Duration};
-use tokio::time::{Duration as TokioDuration, sleep};
+use std::collections::HashMap;
 
 #[derive(Deserialize, Serialize, Debug, Clone, PartialEq, Eq, Hash)]
 pub struct UnmutedTime { pub unmuted_time: BTreeMap<String, String> }
@@ -39,7 +38,7 @@ pub async fn mute(
     let mut time_muted_as_string = String::new();
     
     // opening the mute roles dict
-    let file = fs::File::open("./src/commands/Moderation/mute_roles.json").unwrap();
+    let file = fs::File::open("./src/commands/moderation/mute_roles.json").unwrap();
     let json_value: serde_json::Value = serde_json::from_reader(file).unwrap();
     let json = json_value.to_string();
     let mute_roles = serde_json::from_str::<BTreeMap<String, String>>(&json)?;
@@ -109,7 +108,7 @@ pub async fn mute(
         time_muted_as_string = format!("{}", time_muted);
     
         // opening the unmuted time dict 
-        let unmute_times = fs::File::open("./src/commands/Moderation/unmuted_times.json").unwrap();
+        let unmute_times = fs::File::open("./src/commands/moderation/unmuted_times.json").unwrap();
         let unmute_value: serde_json::Value = serde_json::from_reader(&unmute_times).unwrap();
         let unmute_json = unmute_value.to_string();
         let mut unmute_times_dict = serde_json::from_str::<BTreeMap<String, UnmutedTime>>(&unmute_json)?;
@@ -135,7 +134,7 @@ pub async fn mute(
         let mut ser = serde_json::Serializer::with_formatter(buf, formatter);
         unmute_times_dict.serialize(&mut ser).unwrap();
         
-        let mut unmute_times = fs::File::create("./src/commands/Moderation/unmuted_times.json").unwrap();
+        let mut unmute_times = fs::File::create("./src/commands/moderation/unmuted_times.json").unwrap();
         write!(unmute_times, "{}", String::from_utf8(ser.into_inner()).unwrap()).unwrap();
     }
         // getting the role id and adding the muterole to user    
@@ -186,7 +185,7 @@ pub async fn unmute(
     let guild_id = ctx.clone().guild_id().unwrap().to_string();
     
     // opening the muteroles dict file
-    let file = fs::File::open("./src/commands/Moderation/mute_roles.json").unwrap();
+    let file = fs::File::open("./src/commands/moderation/mute_roles.json").unwrap();
     let json: serde_json::Value = serde_json::from_reader(file).unwrap();
     let json = json.to_string();
     let mute_roles = serde_json::from_str::<BTreeMap<String, String>>(&json)?;
@@ -198,7 +197,7 @@ pub async fn unmute(
     }
     
     // opening the unmuted times dict 
-    let unmute_times = fs::File::open("./src/commands/Moderation/unmuted_times.json").unwrap();
+    let unmute_times = fs::File::open("./src/commands/moderation/unmuted_times.json").unwrap();
     let unmute_value: serde_json::Value = serde_json::from_reader(&unmute_times).unwrap();
     let unmute_json = unmute_value.to_string();
     
@@ -219,7 +218,7 @@ pub async fn unmute(
     let formatter = serde_json::ser::PrettyFormatter::with_indent(b"    ");
     let mut ser = serde_json::Serializer::with_formatter(buf, formatter);
     unmute_times_dict.serialize(&mut ser).unwrap();
-    let mut unmute_times = fs::File::create("./src/commands/Moderation/unmuted_times.json").unwrap();
+    let mut unmute_times = fs::File::create("./src/commands/moderation/unmuted_times.json").unwrap();
     write!(unmute_times, "{}", String::from_utf8(ser.into_inner()).unwrap()).unwrap();
     
     // removing the role from user
@@ -240,7 +239,7 @@ pub async fn muterole(
     role: sr::Role,
 ) -> Result<(), Error> {
     // opening the muteroles dict
-    let file = fs::File::open("./src/commands/Moderation/mute_roles.json").unwrap();
+    let file = fs::File::open("./src/commands/moderation/mute_roles.json").unwrap();
     let json: serde_json::Value = serde_json::from_reader(file).unwrap();
     let json = json.to_string();
     let mut mute_roles = serde_json::from_str::<HashMap<String, String>>(&json)?;
@@ -252,7 +251,7 @@ pub async fn muterole(
     let formatter = serde_json::ser::PrettyFormatter::with_indent(b"    ");
     let mut ser = serde_json::Serializer::with_formatter(buf, formatter);
     mute_roles.serialize(&mut ser).unwrap();
-    let mut mute_roles_file = fs::File::create("./src/commands/Moderation/mute_roles.json").unwrap();
+    let mut mute_roles_file = fs::File::create("./src/commands/moderation/mute_roles.json").unwrap();
     write!(mute_roles_file, "{}", String::from_utf8(ser.into_inner()).unwrap()).unwrap();
     
     // tell them we set the role
