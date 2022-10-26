@@ -6,11 +6,12 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-tokio               = { version = "*", features = ["full", "macros", "rt-multi-thread"] }
-dotenv              = "*"
-toml                = "*"
-serde               = "*"
-serde_derive        = "*"
-serde_json          = "*"
-poise               = "*"
-chrono              = "*" 
+chrono = "*"
+dotenv = "*"
+json = "*"
+poise = "*"
+serde = "*"
+serde_derive = "*"
+serde_json = "*"
+tokio = { version = "*", features = ["full", "macros", "rt-multi-thread"] }
+toml = "*"

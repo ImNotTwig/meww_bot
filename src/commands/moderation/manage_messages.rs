@@ -1,29 +1,38 @@
 use crate::{Context, Error};
-use tokio::time::{Duration, sleep};
+use tokio::time::{sleep, Duration};
 
 // ---------PURGE COMMAND--------------------------------------------------------------------------------------
 
 #[poise::command(prefix_command, aliases("clear"))]
 pub async fn purge(
     ctx: Context<'_>,
-    #[description = "Number of messages to delete."]
-    num_mesg_to_delete: u64
+    #[description = "Number of messages to delete."] num_mesg_to_delete: u64,
 ) -> Result<(), Error> {
-    
     let channel_id = ctx.channel_id();
     let message_id = ctx.id();
-    
+
     let messages = channel_id
-        .messages(&ctx.discord().http, |retriever| retriever.before(message_id).limit(num_mesg_to_delete))
+        .messages(&ctx.discord().http, |retriever| {
+            retriever.before(message_id).limit(num_mesg_to_delete)
+        })
         .await?;
-    
-    channel_id.delete_messages(ctx.discord().http.clone(), messages).await?;
-            
-    ctx.discord().http.delete_message(channel_id.0, message_id).await?;
-    let message = ctx.say(format!("{} messages have been deleted!", num_mesg_to_delete)).await?;
+
+    channel_id
+        .delete_messages(ctx.discord().http.clone(), messages)
+        .await?;
+
+    ctx.discord()
+        .http
+        .delete_message(channel_id.0, message_id)
+        .await?;
+    let message = ctx
+        .say(format!(
+            "{} messages have been deleted!",
+            num_mesg_to_delete
+        ))
+        .await?;
     sleep(Duration::from_millis(5000)).await;
     message.delete(ctx).await?;
-    
-    
+
     Ok(())
 }

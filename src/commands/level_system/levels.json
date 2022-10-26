@@ -1,0 +1,77 @@
+{
+    "722092863994855534": {
+        "members": {
+            "389202953862512641": {
+                "level": 6,
+                "total_xp": 1604,
+                "current_xp": 385,
+                "xp_needed": 420,
+                "can_gain_xp": true
+            },
+            "394622796698746880": {
+                "level": 7,
+                "total_xp": 1760,
+                "current_xp": 120,
+                "xp_needed": 475,
+                "can_gain_xp": true
+            },
+            "415006070008709121": {
+                "level": 4,
+                "total_xp": 1035,
+                "current_xp": 313,
+                "xp_needed": 330,
+                "can_gain_xp": true
+            },
+            "725836730846019644": {
+                "level": 6,
+                "total_xp": 1599,
+                "current_xp": 350,
+                "xp_needed": 420,
+                "can_gain_xp": true
+            }
+        }
+    },
+    "852658516987609148": {
+        "members": {
+            "389202953862512641": {
+                "level": 11,
+                "total_xp": 3546,
+                "current_xp": 491,
+                "xp_needed": 695,
+                "can_gain_xp": true
+            }
+        }
+    },
+    "global": {
+        "members": {
+            "389202953862512641": {
+                "level": 17,
+                "total_xp": 5150,
+                "current_xp": 0,
+                "xp_needed": 0,
+                "can_gain_xp": true
+            },
+            "394622796698746880": {
+                "level": 7,
+                "total_xp": 1760,
+                "current_xp": 0,
+                "xp_needed": 0,
+                "can_gain_xp": true
+            },
+            "415006070008709121": {
+                "level": 4,
+                "total_xp": 1035,
+                "current_xp": 0,
+                "xp_needed": 0,
+                "can_gain_xp": true
+            },
+            "725836730846019644": {
+                "level": 6,
+                "total_xp": 1599,
+                "current_xp": 0,
+                "xp_needed": 0,
+                "can_gain_xp": true
+            }
+        }
+    }
+}

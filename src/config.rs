@@ -33,11 +33,12 @@ pub struct LevelSystem {
 
 pub fn read_config() -> std::io::Result<Config> {
     let content = std::fs::read_to_string("./config.toml");
-    
+
     let config = match content {
         Ok(file) => file,
-        Err(_) => std::fs::read_to_string("./example_config.toml").expect("No config provided, read the readme to see how to set up a config.toml") 
+        Err(_) => std::fs::read_to_string("./example_config.toml")
+            .expect("No config provided, read the readme to see how to set up a config.toml"),
     };
-        
+
     Ok(toml::from_str(&config)?)
 }
