@@ -11,29 +11,22 @@ mod config;
 use config::read_config;
 
 mod commands;
-use commands::moderation::kick_ban;
-use commands::moderation::manage_messages;
-use commands::moderation::muting;
-use commands::moderation::muting::UnmutedTime;
+
+use commands::moderation;
+use moderation::kick_ban;
+use moderation::manage_messages;
+use moderation::muting;
+use moderation::muting::UnmutedTime;
+
+use commands::level_system::xp;
+use xp::xp;
+use xp::ServerLevels;
+use xp::ServerMember;
 
 #[derive(Deserialize, Serialize, Clone)]
 pub struct SpamCount {
     amount_of_messages_without_change: i32,
     message_content: String,
-}
-
-#[derive(Debug, Deserialize, Serialize, Clone)]
-pub struct ServerMember {
-    level: u64,
-    total_xp: u64,
-    current_xp: u64,
-    xp_needed: u64,
-    can_gain_xp: bool,
-}
-
-#[derive(Debug, Deserialize, Serialize, Clone)]
-pub struct ServerLevels {
-    members: BTreeMap<String, ServerMember>,
 }
 
 type Error = Box<dyn std::error::Error + Send + Sync>;
@@ -374,6 +367,7 @@ async fn main() {
         kick_ban::kick(),
         kick_ban::ban(),
         manage_messages::purge(),
+        xp::xp(),
     ];
 
     let framework = poise::Framework::builder()
