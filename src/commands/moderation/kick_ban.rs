@@ -1,14 +1,6 @@
-use crate::{read_config, Context, Error};
-use chrono::{Duration, Utc};
+use crate::{Context, Error};
 use poise::serenity_prelude as sr;
-use poise::serenity_prelude::CacheHttp;
 use poise::serenity_prelude::Mentionable;
-use serde::{Deserialize, Serialize};
-use sr::RoleId;
-use std::collections::BTreeMap;
-use std::fs;
-use std::io::Write;
-use tokio::time::{sleep, Duration as TokioDuration};
 
 // ---------KICK COMMAND---------------------------------------------------------------------------------------
 

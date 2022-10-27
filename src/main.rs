@@ -39,11 +39,6 @@ pub struct ServerLevels {
 type Error = Box<dyn std::error::Error + Send + Sync>;
 type Context<'a> = poise::Context<'a, (), Error>;
 
-pub fn read_levels_file() -> std::io::Result<ServerLevels> {
-    let content = std::fs::read_to_string("./src/commands/level_system/levels.toml")?;
-    Ok(toml::from_str(&content)?)
-}
-
 async fn event_listener(
     ctx: &sr::Context,
     event: &poise::Event<'_>,
@@ -57,27 +52,35 @@ async fn event_listener(
 
             // ------------------------------------------------------------------------------------
 
-            let levels_file = fs::File::open("./src/commands/level_system/levels.json").unwrap();
-            let levels_value: serde_json::Value = serde_json::from_reader(&levels_file).unwrap();
-            let levels_json = levels_value.to_string();
-            let mut levels_dict =
-                serde_json::from_str::<BTreeMap<String, ServerLevels>>(&levels_json)?;
+            if config.level_system.levels_on == true {
+                let levels_file =
+                    fs::File::open("./src/commands/level_system/levels.json").unwrap();
 
-            for mut server in levels_dict.clone() {
-                for mut member in server.1.members.clone() {
-                    member.1.can_gain_xp = true;
-                    server.1.members.insert(member.0, member.1);
+                let levels_value: serde_json::Value =
+                    serde_json::from_reader(&levels_file).unwrap();
+
+                let levels_json = levels_value.to_string();
+
+                let mut levels_dict =
+                    serde_json::from_str::<BTreeMap<String, ServerLevels>>(&levels_json)?;
+
+                for mut server in levels_dict.clone() {
+                    for mut member in server.1.members.clone() {
+                        member.1.can_gain_xp = true;
+                        server.1.members.insert(member.0, member.1);
+                    }
+                    levels_dict.insert(server.0, server.1);
                 }
-                levels_dict.insert(server.0, server.1);
+
+                let buf = Vec::new();
+                let formatter = serde_json::ser::PrettyFormatter::with_indent(b"    ");
+                let mut ser = serde_json::Serializer::with_formatter(buf, formatter);
+                levels_dict.serialize(&mut ser).unwrap();
+
+                let mut levels =
+                    fs::File::create("./src/commands/level_system/levels.json").unwrap();
+                write!(levels, "{}", String::from_utf8(ser.into_inner()).unwrap()).unwrap();
             }
-
-            let buf = Vec::new();
-            let formatter = serde_json::ser::PrettyFormatter::with_indent(b"    ");
-            let mut ser = serde_json::Serializer::with_formatter(buf, formatter);
-            levels_dict.serialize(&mut ser).unwrap();
-
-            let mut levels = fs::File::create("./src/commands/level_system/levels.json").unwrap();
-            write!(levels, "{}", String::from_utf8(ser.into_inner()).unwrap()).unwrap();
 
             // ------------------------------------------------------------------------------------
 
@@ -93,12 +96,14 @@ async fn event_listener(
 
                 let unmute_value: serde_json::Value = serde_json::from_str(&unmute_times).unwrap();
                 let unmute_json = unmute_value.to_string();
+
                 let mut unmute_times_dict =
                     serde_json::from_str::<BTreeMap<String, UnmutedTime>>(&unmute_json).unwrap();
 
                 for server in unmute_times_dict.clone() {
                     for member in server.1.unmuted_time {
                         let time_unmuted: DateTime<Utc> = member.1.parse().unwrap();
+
                         if now > time_unmuted {
                             let user_id = member.0.parse::<u64>().unwrap();
                             let guild_id = server.0.parse::<u64>().unwrap();
@@ -113,7 +118,9 @@ async fn event_listener(
 
                             let mute_roles_json: serde_json::Value =
                                 serde_json::from_str(&mute_roles_file).unwrap();
+
                             let mute_roles_json = mute_roles_json.to_string();
+
                             let mute_roles =
                                 serde_json::from_str::<BTreeMap<String, String>>(&mute_roles_json)?;
 
@@ -205,6 +212,7 @@ async fn event_listener(
                 let file = fs::File::open("./src/commands/moderation/spam_count.json").unwrap();
                 let json_value: serde_json::Value = serde_json::from_reader(file).unwrap();
                 let json = json_value.to_string();
+
                 let mut spam_count_dict =
                     serde_json::from_str::<BTreeMap<String, BTreeMap<String, SpamCount>>>(&json)?;
 
@@ -267,9 +275,12 @@ async fn event_listener(
                 {
                     let mute_roles_files =
                         fs::File::open("./src/commands/moderation/mute_roles.json").unwrap();
+
                     let mute_roles_value: serde_json::Value =
                         serde_json::from_reader(mute_roles_files).unwrap();
+
                     let mute_roles_json = mute_roles_value.to_string();
+
                     let mute_roles =
                         serde_json::from_str::<BTreeMap<String, String>>(&mute_roles_json)?;
 
@@ -328,8 +339,10 @@ async fn event_listener(
                 let formatter = serde_json::ser::PrettyFormatter::with_indent(b"    ");
                 let mut ser = serde_json::Serializer::with_formatter(buf, formatter);
                 spam_count_dict.serialize(&mut ser).unwrap();
+
                 let mut spam_count_file =
                     fs::File::create("./src/commands/moderation/spam_count.json").unwrap();
+
                 write!(
                     spam_count_file,
                     "{}",
