@@ -51,6 +51,7 @@ async fn event_listener(
             println!("{} is connected!", data_about_bot.user.name);
 
             // ------------------------------------------------------------------------------------
+            // setting everyone's can_gain_xp variable to true on startup
 
             if config.level_system.levels_on == true {
                 let levels_file =
@@ -83,6 +84,7 @@ async fn event_listener(
             }
 
             // ------------------------------------------------------------------------------------
+            // checking for people who need to be unmuted according to the unmuted_times.json file
 
             loop {
                 sleep(Duration::from_millis(1000)).await;
@@ -209,6 +211,7 @@ async fn event_listener(
                     }
                 }
 
+                // spam checker
                 let file = fs::File::open("./src/commands/moderation/spam_count.json").unwrap();
                 let json_value: serde_json::Value = serde_json::from_reader(file).unwrap();
                 let json = json_value.to_string();
@@ -350,7 +353,9 @@ async fn event_listener(
                 )
                 .unwrap();
             }
-            if config.level_system.levels_on == true {}
+            if config.level_system.levels_on == true {
+                // TODO
+            }
         }
         _ => {}
     }
