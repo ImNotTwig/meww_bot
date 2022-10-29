@@ -10,6 +10,9 @@ use tokio::time::{sleep, Duration};
 mod config;
 use config::read_config;
 
+mod file_loader;
+use file_loader::{open_mute_roles, open_server_levels, open_spam_count, open_unmute_times};
+
 mod commands;
 
 use commands::moderation;
@@ -19,9 +22,6 @@ use moderation::muting;
 use moderation::muting::UnmutedTime;
 
 use commands::level_system::xp;
-use xp::xp;
-use xp::ServerLevels;
-use xp::ServerMember;
 
 #[derive(Deserialize, Serialize, Clone)]
 pub struct SpamCount {
@@ -47,16 +47,7 @@ async fn event_listener(
             // setting everyone's can_gain_xp variable to true on startup
 
             if config.level_system.levels_on == true {
-                let levels_file =
-                    fs::File::open("./src/commands/level_system/levels.json").unwrap();
-
-                let levels_value: serde_json::Value =
-                    serde_json::from_reader(&levels_file).unwrap();
-
-                let levels_json = levels_value.to_string();
-
-                let mut levels_dict =
-                    serde_json::from_str::<BTreeMap<String, ServerLevels>>(&levels_json)?;
+                let mut levels_dict = open_server_levels();
 
                 for mut server in levels_dict.clone() {
                     for mut member in server.1.members.clone() {
@@ -82,18 +73,8 @@ async fn event_listener(
             loop {
                 sleep(Duration::from_millis(1000)).await;
                 let now = Utc::now();
-                let mut unmute_times =
-                    fs::read_to_string("./src/commands/moderation/unmuted_times.json").unwrap();
 
-                if unmute_times == "" {
-                    unmute_times = "{}".to_string();
-                }
-
-                let unmute_value: serde_json::Value = serde_json::from_str(&unmute_times).unwrap();
-                let unmute_json = unmute_value.to_string();
-
-                let mut unmute_times_dict =
-                    serde_json::from_str::<BTreeMap<String, UnmutedTime>>(&unmute_json).unwrap();
+                let mut unmute_times_dict = open_unmute_times();
 
                 for server in unmute_times_dict.clone() {
                     for member in server.1.unmuted_time {
@@ -103,21 +84,7 @@ async fn event_listener(
                             let user_id = member.0.parse::<u64>().unwrap();
                             let guild_id = server.0.parse::<u64>().unwrap();
 
-                            let mut mute_roles_file =
-                                fs::read_to_string("./src/commands/moderation/mute_roles.json")
-                                    .unwrap();
-
-                            if mute_roles_file == "" {
-                                mute_roles_file = "{}".to_string();
-                            }
-
-                            let mute_roles_json: serde_json::Value =
-                                serde_json::from_str(&mute_roles_file).unwrap();
-
-                            let mute_roles_json = mute_roles_json.to_string();
-
-                            let mute_roles =
-                                serde_json::from_str::<BTreeMap<String, String>>(&mute_roles_json)?;
+                            let mute_roles = open_mute_roles();
 
                             let mute_role = mute_roles
                                 .get(&guild_id.to_string())
@@ -205,12 +172,7 @@ async fn event_listener(
                 }
 
                 // spam checker
-                let file = fs::File::open("./src/commands/moderation/spam_count.json").unwrap();
-                let json_value: serde_json::Value = serde_json::from_reader(file).unwrap();
-                let json = json_value.to_string();
-
-                let mut spam_count_dict =
-                    serde_json::from_str::<BTreeMap<String, BTreeMap<String, SpamCount>>>(&json)?;
+                let mut spam_count_dict = open_spam_count();
 
                 let mut user_bmap = BTreeMap::new();
 
@@ -269,16 +231,7 @@ async fn event_listener(
                     .amount_of_messages_without_change
                     >= config.spam_settings.spam_count - 1
                 {
-                    let mute_roles_files =
-                        fs::File::open("./src/commands/moderation/mute_roles.json").unwrap();
-
-                    let mute_roles_value: serde_json::Value =
-                        serde_json::from_reader(mute_roles_files).unwrap();
-
-                    let mute_roles_json = mute_roles_value.to_string();
-
-                    let mute_roles =
-                        serde_json::from_str::<BTreeMap<String, String>>(&mute_roles_json)?;
+                    let mute_roles = open_mute_roles();
 
                     let mute_role = mute_roles
                         .get(&message.clone().guild_id.unwrap().to_string())
@@ -367,7 +320,7 @@ async fn main() {
         kick_ban::kick(),
         kick_ban::ban(),
         manage_messages::purge(),
-        xp::xp(),
+        xp::check_xp(),
     ];
 
     let framework = poise::Framework::builder()
