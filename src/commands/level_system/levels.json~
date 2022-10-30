@@ -72,13 +72,6 @@
                 "xp_needed": 0,
                 "can_gain_xp": true
             },
-            "500658624109084682": {
-                "level": 0,
-                "total_xp": 0,
-                "current_xp": 0,
-                "xp_needed": 100,
-                "can_gain_xp": true
-            },
             "725836730846019644": {
                 "level": 6,
                 "total_xp": 1599,

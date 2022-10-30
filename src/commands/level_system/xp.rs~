@@ -112,7 +112,7 @@ pub async fn check_xp(
         levels = open_server_levels();
     }
 
-    let user_pfp = user.unwrap().avatar_url().unwrap();
+    let user_pfp = ctx.author().clone().avatar_url().unwrap();
 
     let global_xp = levels
         .get("global")
