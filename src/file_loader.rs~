@@ -5,6 +5,9 @@ use std::fs;
 
 use crate::commands::level_system::xp::ServerLevels;
 
+// write to file
+pub fn write_to_json(dict: BTreeMap<T, T>, file_path: &str) {}
+
 // server levels opener
 pub fn open_server_levels() -> BTreeMap<String, ServerLevels> {
     let mut levels = fs::read_to_string("./src/commands/level_system/levels.json").unwrap();

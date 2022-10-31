@@ -35,10 +35,10 @@
         "members": {
             "389202953862512641": {
                 "level": 11,
-                "total_xp": 3546,
-                "current_xp": 491,
+                "total_xp": 3614,
+                "current_xp": 559,
                 "xp_needed": 695,
-                "can_gain_xp": true
+                "can_gain_xp": false
             },
             "500658624109084682": {
                 "level": 0,

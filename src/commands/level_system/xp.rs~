@@ -1,3 +1,4 @@
+use crate::file_loader::open_level_enabler;
 use crate::file_loader::open_server_levels;
 use crate::{Context, Error};
 use poise::serenity_prelude as sr;
@@ -112,7 +113,7 @@ pub async fn check_xp(
         levels = open_server_levels();
     }
 
-    let user_pfp = ctx.author().clone().avatar_url().unwrap();
+    let user_pfp = user.unwrap().avatar_url().unwrap();
 
     let global_xp = levels
         .get("global")
@@ -176,13 +177,56 @@ pub async fn check_xp(
                     .field(format!("{}'s Xp", user_name), xp, true)
                     .field(format!("{}'s Level", user_name), level, true)
                     .field(
-                        format!("Progress to leveling up in {}", user_name),
+                        format!("Progress to leveling up in {}", ctx.guild().unwrap().name),
                         format!("{}{}", blue_squares, white_squares),
                         false,
                     )
             })
         })
         .await?;
+
+    Ok(())
+}
+
+#[poise::command(prefix_command, aliases("levelswitch"))]
+pub async fn levels(
+    ctx: Context<'_>,
+    #[description = "Do you want to turn the level system on or off?"] mut on_or_off: String,
+) -> Result<(), Error> {
+    let mut server_enabler = open_level_enabler();
+    let server_id = ctx.clone().guild_id().unwrap().to_string();
+
+    if &on_or_off.to_lowercase() == "on" || &on_or_off.to_lowercase() == "true" {
+        server_enabler.insert(server_id, true);
+        on_or_off = "on".to_string();
+    } else if &on_or_off.to_lowercase() == "off" || &on_or_off == "false" {
+        server_enabler.insert(server_id, false);
+        on_or_off = "off".to_string();
+    }
+
+    println!("{:?}", &on_or_off);
+
+    let buf = Vec::new();
+    let formatter = serde_json::ser::PrettyFormatter::with_indent(b"    ");
+    let mut ser = serde_json::Serializer::with_formatter(buf, formatter);
+    server_enabler.serialize(&mut ser).unwrap();
+
+    let mut server_enabler_file =
+        fs::File::create("./src/commands/level_system/server_enabler.json").unwrap();
+
+    write!(
+        server_enabler_file,
+        "{}",
+        String::from_utf8(ser.into_inner()).unwrap()
+    )
+    .unwrap();
+
+    ctx.say(format!(
+        "The level system for {} has been turned {}",
+        ctx.guild().unwrap().name,
+        on_or_off
+    ))
+    .await?;
 
     Ok(())
 }

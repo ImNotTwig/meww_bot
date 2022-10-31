@@ -11,7 +11,9 @@ mod config;
 use config::read_config;
 
 mod file_loader;
-use file_loader::{open_mute_roles, open_server_levels, open_spam_count, open_unmute_times};
+use file_loader::{
+    open_level_enabler, open_mute_roles, open_server_levels, open_spam_count, open_unmute_times,
+};
 
 mod commands;
 
@@ -81,6 +83,7 @@ async fn event_listener(
                                     .members
                                     .insert(member.0.clone(), ServerMember::new());
                             }
+
                             let mut global_member =
                                 global_levels.members.get(&member.0).unwrap().clone();
                             global_member.level += member.1.level;
@@ -170,6 +173,8 @@ async fn event_listener(
         }
         poise::Event::Message { new_message } => {
             // println!("in {} from {}: {}", new_message.guild(&_ctx.cache).unwrap().name, new_message.member(&_ctx.http).await.unwrap().display_name, new_message.content);
+            let mut levels_dict = open_server_levels();
+            let mut server_enabler = open_level_enabler();
             let message = new_message.clone();
             let author_id = message.clone().author.id.to_string();
             let guild_id = message.clone().guild_id.unwrap().to_string();
@@ -181,159 +186,309 @@ async fn event_listener(
                 .permissions(&ctx.cache)
                 .unwrap();
 
-            if config.spam_settings.antispam == true {
-                // if the author has admin perms
-                if perms.administrator() == true {
-                    return Ok(());
-                // if the author is a bot
-                } else if message.clone().author.bot == true {
-                    return Ok(());
-                // if the author has manage_messages perms
-                } else if perms.manage_messages() == true {
+            if config.level_system.levels_on == true {
+                if message.clone().author.bot == true {
                     return Ok(());
                 }
-                // checking if the message contained any black listed words
-                for black_listed_word in config.word_blacklist {
-                    for word in message.content.split(" ") {
-                        if word.to_string().contains(&black_listed_word) {
-                            message.channel_id.send_message(&ctx.http, |m| {
-                                m.content(format!("{} your message has been deleted because it contained a black-listed word.", message.author.mention())) 
-                            }).await?;
-                            return Ok(());
+
+                if message.clone().content.starts_with(&config.prefix) {
+                    return Ok(());
+                }
+
+                if !server_enabler.contains_key(&guild_id) {
+                    server_enabler.insert(guild_id.clone(), false);
+
+                    let buf = Vec::new();
+                    let formatter = serde_json::ser::PrettyFormatter::with_indent(b"    ");
+                    let mut ser = serde_json::Serializer::with_formatter(buf, formatter);
+                    server_enabler.serialize(&mut ser).unwrap();
+
+                    let mut server_enabler_file =
+                        fs::File::create("./src/commands/level_system/server_enabler.json")
+                            .unwrap();
+
+                    write!(
+                        server_enabler_file,
+                        "{}",
+                        String::from_utf8(ser.into_inner()).unwrap()
+                    )
+                    .unwrap();
+
+                    server_enabler = open_level_enabler();
+                }
+
+                if server_enabler.get(&guild_id).unwrap() == &true {
+                    if !levels_dict.contains_key(&guild_id) {
+                        levels_dict.insert(guild_id.clone(), xp::ServerLevels::new());
+                    }
+
+                    let mut server_dict = levels_dict.get(&guild_id).unwrap().clone();
+
+                    if !server_dict.members.contains_key(&author_id) {
+                        server_dict
+                            .members
+                            .insert(author_id.clone(), ServerMember::new());
+
+                        levels_dict.insert(guild_id.clone(), server_dict);
+
+                        let buf = Vec::new();
+                        let formatter = serde_json::ser::PrettyFormatter::with_indent(b"    ");
+                        let mut ser = serde_json::Serializer::with_formatter(buf, formatter);
+                        levels_dict.serialize(&mut ser).unwrap();
+
+                        let mut levels_file =
+                            fs::File::create("./src/commands/level_system/levels.json").unwrap();
+
+                        write!(
+                            levels_file,
+                            "{}",
+                            String::from_utf8(ser.into_inner()).unwrap()
+                        )
+                        .unwrap();
+
+                        levels_dict = open_server_levels();
+                    }
+
+                    let mut server_dict = levels_dict.get(&guild_id).unwrap().clone();
+
+                    let mut author_levels_data =
+                        server_dict.members.get(&author_id).unwrap().clone();
+
+                    println!("{}", author_levels_data.can_gain_xp);
+
+                    if author_levels_data.can_gain_xp == true {
+                        let xp_gained = fastrand::i32(
+                            config.level_system.xp_per_message[0]
+                                ..=config.level_system.xp_per_message[1],
+                        );
+
+                        println!("{}", xp_gained);
+
+                        author_levels_data.current_xp += xp_gained as u64;
+                        author_levels_data.total_xp += xp_gained as u64;
+
+                        while author_levels_data.current_xp >= author_levels_data.xp_needed {
+                            if author_levels_data.current_xp > author_levels_data.xp_needed {
+                                author_levels_data.current_xp =
+                                    author_levels_data.current_xp - author_levels_data.xp_needed;
+                            } else {
+                                author_levels_data.current_xp = 0;
+                            }
+
+                            author_levels_data.level += 1;
+
+                            author_levels_data.xp_needed = 5 * (author_levels_data.level ^ 2)
+                                + (50 * author_levels_data.level + 100);
                         }
+
+                        author_levels_data.can_gain_xp = false;
+
+                        server_dict
+                            .members
+                            .insert(author_id.clone(), author_levels_data);
+
+                        levels_dict.insert(guild_id.clone(), server_dict);
+
+                        let buf = Vec::new();
+                        let formatter = serde_json::ser::PrettyFormatter::with_indent(b"    ");
+                        let mut ser = serde_json::Serializer::with_formatter(buf, formatter);
+                        levels_dict.serialize(&mut ser).unwrap();
+
+                        let mut levels_file =
+                            fs::File::create("./src/commands/level_system/levels.json").unwrap();
+
+                        write!(
+                            levels_file,
+                            "{}",
+                            String::from_utf8(ser.into_inner()).unwrap()
+                        )
+                        .unwrap();
+
+                        levels_dict = open_server_levels();
+                        server_dict = levels_dict.get(&guild_id).unwrap().clone();
+                        author_levels_data = server_dict.members.get(&author_id).unwrap().clone();
+
+                        let cooldown = config.level_system.cooldown_in_seconds.clone();
+
+                        sleep(Duration::from_secs(cooldown as u64)).await;
+
+                        author_levels_data.can_gain_xp = true;
+
+                        server_dict
+                            .members
+                            .insert(author_id.clone(), author_levels_data);
+
+                        levels_dict.insert(guild_id.clone(), server_dict);
+
+                        let buf = Vec::new();
+                        let formatter = serde_json::ser::PrettyFormatter::with_indent(b"    ");
+                        let mut ser = serde_json::Serializer::with_formatter(buf, formatter);
+                        levels_dict.serialize(&mut ser).unwrap();
+
+                        let mut levels_file =
+                            fs::File::create("./src/commands/level_system/levels.json").unwrap();
+
+                        write!(
+                            levels_file,
+                            "{}",
+                            String::from_utf8(ser.into_inner()).unwrap()
+                        )
+                        .unwrap();
                     }
                 }
 
-                // spam checker
-                let mut spam_count_dict = open_spam_count();
+                if config.spam_settings.antispam == true {
+                    // if the author has admin perms
+                    if perms.administrator() == true {
+                        return Ok(());
+                    // if the author is a bot
+                    } else if message.clone().author.bot == true {
+                        return Ok(());
+                    // if the author has manage_messages perms
+                    } else if perms.manage_messages() == true {
+                        return Ok(());
+                    }
+                    // checking if the message contained any black listed words
+                    for black_listed_word in config.word_blacklist {
+                        for word in message.content.split(" ") {
+                            if word.to_string().contains(&black_listed_word) {
+                                message.channel_id.send_message(&ctx.http, |m| {
+                                m.content(format!("{} your message has been deleted because it contained a black-listed word.", message.author.mention())) 
+                            }).await?;
+                                return Ok(());
+                            }
+                        }
+                    }
 
-                let mut user_bmap = BTreeMap::new();
+                    // spam checker
+                    let mut spam_count_dict = open_spam_count();
 
-                user_bmap.insert(
-                    author_id.clone(),
-                    SpamCount {
-                        amount_of_messages_without_change: 0,
-                        message_content: message.clone().content.to_string(),
-                    },
-                );
+                    let mut user_bmap = BTreeMap::new();
 
-                if !spam_count_dict.contains_key(&guild_id) {
-                    spam_count_dict.insert(guild_id.clone(), user_bmap);
-                }
-
-                let mut spam_count = spam_count_dict.clone().get(&guild_id).unwrap().clone();
-
-                if !spam_count.contains_key(&author_id.clone()) {
-                    spam_count.insert(
+                    user_bmap.insert(
                         author_id.clone(),
                         SpamCount {
                             amount_of_messages_without_change: 0,
                             message_content: message.clone().content.to_string(),
                         },
                     );
-                }
 
-                if spam_count.get(&author_id.clone()).unwrap().message_content
-                    != message.clone().content
-                {
-                    spam_count.insert(
-                        author_id.clone(),
-                        SpamCount {
-                            amount_of_messages_without_change: 0,
-                            message_content: message.clone().content.to_string(),
-                        },
-                    );
-                }
+                    if !spam_count_dict.contains_key(&guild_id) {
+                        spam_count_dict.insert(guild_id.clone(), user_bmap);
+                    }
 
-                if spam_count
-                    .get(&author_id)
-                    .unwrap()
-                    .amount_of_messages_without_change
-                    == 0
-                {
-                    spam_count.insert(
-                        author_id.clone(),
-                        SpamCount {
-                            amount_of_messages_without_change: 1,
-                            message_content: message.clone().content.to_string(),
-                        },
-                    );
-                } else if spam_count
-                    .get(&author_id)
-                    .unwrap()
-                    .amount_of_messages_without_change
-                    >= config.spam_settings.spam_count - 1
-                {
-                    let mute_roles = open_mute_roles();
+                    let mut spam_count = spam_count_dict.clone().get(&guild_id).unwrap().clone();
 
-                    let mute_role = mute_roles
-                        .get(&message.clone().guild_id.unwrap().to_string())
+                    if !spam_count.contains_key(&author_id.clone()) {
+                        spam_count.insert(
+                            author_id.clone(),
+                            SpamCount {
+                                amount_of_messages_without_change: 0,
+                                message_content: message.clone().content.to_string(),
+                            },
+                        );
+                    }
+
+                    if spam_count.get(&author_id.clone()).unwrap().message_content
+                        != message.clone().content
+                    {
+                        spam_count.insert(
+                            author_id.clone(),
+                            SpamCount {
+                                amount_of_messages_without_change: 0,
+                                message_content: message.clone().content.to_string(),
+                            },
+                        );
+                    }
+
+                    if spam_count
+                        .get(&author_id)
                         .unwrap()
-                        .parse::<u64>()
-                        .unwrap();
-
-                    message
-                        .clone()
-                        .member(&ctx.http)
-                        .await
+                        .amount_of_messages_without_change
+                        == 0
+                    {
+                        spam_count.insert(
+                            author_id.clone(),
+                            SpamCount {
+                                amount_of_messages_without_change: 1,
+                                message_content: message.clone().content.to_string(),
+                            },
+                        );
+                    } else if spam_count
+                        .get(&author_id)
                         .unwrap()
-                        .add_role(&ctx.http, mute_role)
-                        .await?;
+                        .amount_of_messages_without_change
+                        >= config.spam_settings.spam_count - 1
+                    {
+                        let mute_roles = open_mute_roles();
 
-                    message
-                        .channel_id
-                        .send_message(&ctx.http, |m| {
-                            m.content(format!(
-                                "{} you have been muted for spamming.",
-                                message.author.mention()
-                            ))
-                        })
-                        .await?;
+                        let mute_role = mute_roles
+                            .get(&message.clone().guild_id.unwrap().to_string())
+                            .unwrap()
+                            .parse::<u64>()
+                            .unwrap();
 
-                    spam_count.insert(
-                        author_id.clone(),
-                        SpamCount {
-                            amount_of_messages_without_change: 0,
-                            message_content: message.clone().content.to_string(),
-                        },
-                    );
-                } else {
-                    spam_count.insert(
-                        author_id.clone(),
-                        SpamCount {
-                            amount_of_messages_without_change: spam_count
-                                .get(&author_id.clone())
-                                .unwrap()
-                                .amount_of_messages_without_change
-                                + 1,
-                            message_content: message.clone().content.to_string(),
-                        },
-                    );
+                        message
+                            .clone()
+                            .member(&ctx.http)
+                            .await
+                            .unwrap()
+                            .add_role(&ctx.http, mute_role)
+                            .await?;
+
+                        message
+                            .channel_id
+                            .send_message(&ctx.http, |m| {
+                                m.content(format!(
+                                    "{} you have been muted for spamming.",
+                                    message.author.mention()
+                                ))
+                            })
+                            .await?;
+
+                        spam_count.insert(
+                            author_id.clone(),
+                            SpamCount {
+                                amount_of_messages_without_change: 0,
+                                message_content: message.clone().content.to_string(),
+                            },
+                        );
+                    } else {
+                        spam_count.insert(
+                            author_id.clone(),
+                            SpamCount {
+                                amount_of_messages_without_change: spam_count
+                                    .get(&author_id.clone())
+                                    .unwrap()
+                                    .amount_of_messages_without_change
+                                    + 1,
+                                message_content: message.clone().content.to_string(),
+                            },
+                        );
+                    }
+
+                    if spam_count.len() > 50 {
+                        spam_count.pop_last();
+                    }
+
+                    spam_count_dict
+                        .insert(message.clone().guild_id.unwrap().to_string(), spam_count);
+
+                    let buf = Vec::new();
+                    let formatter = serde_json::ser::PrettyFormatter::with_indent(b"    ");
+                    let mut ser = serde_json::Serializer::with_formatter(buf, formatter);
+                    spam_count_dict.serialize(&mut ser).unwrap();
+
+                    let mut spam_count_file =
+                        fs::File::create("./src/commands/moderation/spam_count.json").unwrap();
+
+                    write!(
+                        spam_count_file,
+                        "{}",
+                        String::from_utf8(ser.into_inner()).unwrap()
+                    )
+                    .unwrap();
                 }
-
-                if spam_count.len() > 50 {
-                    spam_count.pop_last();
-                }
-
-                spam_count_dict.insert(message.clone().guild_id.unwrap().to_string(), spam_count);
-
-                let buf = Vec::new();
-                let formatter = serde_json::ser::PrettyFormatter::with_indent(b"    ");
-                let mut ser = serde_json::Serializer::with_formatter(buf, formatter);
-                spam_count_dict.serialize(&mut ser).unwrap();
-
-                let mut spam_count_file =
-                    fs::File::create("./src/commands/moderation/spam_count.json").unwrap();
-
-                write!(
-                    spam_count_file,
-                    "{}",
-                    String::from_utf8(ser.into_inner()).unwrap()
-                )
-                .unwrap();
-            }
-            if config.level_system.levels_on == true {
-                // TODO
             }
         }
         _ => {}
@@ -354,6 +509,7 @@ async fn main() {
         kick_ban::ban(),
         manage_messages::purge(),
         xp::check_xp(),
+        xp::levels(),
     ];
 
     let framework = poise::Framework::builder()
