@@ -191,10 +191,6 @@ async fn event_listener(
                     return Ok(());
                 }
 
-                if message.clone().content.starts_with(&config.prefix) {
-                    return Ok(());
-                }
-
                 if !server_enabler.contains_key(&guild_id) {
                     server_enabler.insert(guild_id.clone(), false);
 
@@ -250,9 +246,12 @@ async fn event_listener(
                     }
 
                     let mut server_dict = levels_dict.get(&guild_id).unwrap().clone();
+                    let mut global_dict = levels_dict.get("global").unwrap().clone();
 
                     let mut author_levels_data =
                         server_dict.members.get(&author_id).unwrap().clone();
+                    let mut author_global_data =
+                        global_dict.members.get(&author_id).unwrap().clone();
 
                     if author_levels_data.can_gain_xp == true {
                         let xp_gained = fastrand::i32(
@@ -262,6 +261,7 @@ async fn event_listener(
 
                         author_levels_data.current_xp += xp_gained as u64;
                         author_levels_data.total_xp += xp_gained as u64;
+                        author_global_data.total_xp += xp_gained as u64;
 
                         while author_levels_data.current_xp >= author_levels_data.xp_needed {
                             if author_levels_data.current_xp > author_levels_data.xp_needed {
@@ -282,8 +282,12 @@ async fn event_listener(
                         server_dict
                             .members
                             .insert(author_id.clone(), author_levels_data);
+                        global_dict
+                            .members
+                            .insert(author_id.clone(), author_global_data);
 
                         levels_dict.insert(guild_id.clone(), server_dict);
+                        levels_dict.insert("global".to_string(), global_dict);
 
                         let buf = Vec::new();
                         let formatter = serde_json::ser::PrettyFormatter::with_indent(b"    ");

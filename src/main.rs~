@@ -191,10 +191,6 @@ async fn event_listener(
                     return Ok(());
                 }
 
-                if message.clone().content.starts_with(&config.prefix) {
-                    return Ok(());
-                }
-
                 if !server_enabler.contains_key(&guild_id) {
                     server_enabler.insert(guild_id.clone(), false);
 
@@ -250,9 +246,12 @@ async fn event_listener(
                     }
 
                     let mut server_dict = levels_dict.get(&guild_id).unwrap().clone();
+                    let mut global_dict = levels_dict.get("global").unwrap().clone();
 
                     let mut author_levels_data =
                         server_dict.members.get(&author_id).unwrap().clone();
+                    let mut author_global_data =
+                        global_dict.members.get(&author_id).unwrap().clone();
 
                     if author_levels_data.can_gain_xp == true {
                         let xp_gained = fastrand::i32(
@@ -507,6 +506,7 @@ async fn main() {
         xp::check_xp(),
         xp::levels(),
         xp::leaderboard(),
+        xp::give_xp(),
     ];
 
     let framework = poise::Framework::builder()
