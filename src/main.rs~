@@ -254,15 +254,11 @@ async fn event_listener(
                     let mut author_levels_data =
                         server_dict.members.get(&author_id).unwrap().clone();
 
-                    println!("{}", author_levels_data.can_gain_xp);
-
                     if author_levels_data.can_gain_xp == true {
                         let xp_gained = fastrand::i32(
                             config.level_system.xp_per_message[0]
                                 ..=config.level_system.xp_per_message[1],
                         );
-
-                        println!("{}", xp_gained);
 
                         author_levels_data.current_xp += xp_gained as u64;
                         author_levels_data.total_xp += xp_gained as u64;
@@ -277,7 +273,7 @@ async fn event_listener(
 
                             author_levels_data.level += 1;
 
-                            author_levels_data.xp_needed = 5 * (author_levels_data.level ^ 2)
+                            author_levels_data.xp_needed = 5 * (author_levels_data.level.pow(2))
                                 + (50 * author_levels_data.level + 100);
                         }
 
@@ -510,6 +506,7 @@ async fn main() {
         manage_messages::purge(),
         xp::check_xp(),
         xp::levels(),
+        xp::leaderboard(),
     ];
 
     let framework = poise::Framework::builder()

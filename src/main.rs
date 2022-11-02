@@ -273,7 +273,7 @@ async fn event_listener(
 
                             author_levels_data.level += 1;
 
-                            author_levels_data.xp_needed = 5 * (author_levels_data.level ^ 2)
+                            author_levels_data.xp_needed = 5 * (author_levels_data.level.pow(2))
                                 + (50 * author_levels_data.level + 100);
                         }
 
@@ -506,6 +506,8 @@ async fn main() {
         manage_messages::purge(),
         xp::check_xp(),
         xp::levels(),
+        xp::leaderboard(),
+        xp::give_xp(),
     ];
 
     let framework = poise::Framework::builder()

@@ -2,10 +2,14 @@ use crate::file_loader::open_level_enabler;
 use crate::file_loader::open_server_levels;
 use crate::{Context, Error};
 use poise::serenity_prelude as sr;
+use poise::serenity_prelude::CreateEmbed;
 use serde::{Deserialize, Serialize};
+use std::cmp::Ordering;
 use std::collections::BTreeMap;
+use std::collections::HashMap;
 use std::fs;
 use std::io::Write;
+use std::ops::Deref;
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct ServerMember {
@@ -163,6 +167,14 @@ pub async fn check_xp(
         .unwrap()
         .xp_needed;
 
+    let total_server_xp = levels
+        .get(&server_id)
+        .unwrap()
+        .members
+        .get(&user_id)
+        .unwrap()
+        .total_xp;
+
     let xp_needed_to_level_up = xp_needed - xp;
     let amount_per_box = xp_needed / 20;
     let current_boxes = xp / amount_per_box;
@@ -180,9 +192,14 @@ pub async fn check_xp(
             m.embed(|e| {
                 e.thumbnail(user_pfp)
                     .title(format!("{}'s Level Stats", user_name))
-                    .field("Global Xp", global_xp, true)
+                    .field("Global xp", global_xp, true)
                     .field("Global Level", global_level, true)
-                    .field(format!("{}'s Xp", user_name), xp, true)
+                    .field(format!("{}'s Current xp", user_name), xp, true)
+                    .field(
+                        format!("{}'s Total xp in this Server", user_name),
+                        total_server_xp,
+                        true,
+                    )
                     .field(format!("{}'s Level", user_name), level, true)
                     .field(
                         format!("Progress to leveling up in {}", ctx.guild().unwrap().name),
@@ -212,8 +229,6 @@ pub async fn levels(
         on_or_off = "off".to_string();
     }
 
-    println!("{:?}", &on_or_off);
-
     let buf = Vec::new();
     let formatter = serde_json::ser::PrettyFormatter::with_indent(b"    ");
     let mut ser = serde_json::Serializer::with_formatter(buf, formatter);
@@ -233,6 +248,145 @@ pub async fn levels(
         "The level system for {} has been turned {}",
         ctx.guild().unwrap().name,
         on_or_off
+    ))
+    .await?;
+
+    Ok(())
+}
+
+#[poise::command(prefix_command, aliases("lb"))]
+pub async fn leaderboard(ctx: Context<'_>) -> Result<(), Error> {
+    let server_id = ctx.guild_id().unwrap().clone().to_string();
+    let server_dict = open_server_levels().get(&server_id).unwrap().clone();
+    let mut levels_dict_resorted = BTreeMap::new();
+
+    for member in server_dict.members {
+        let level = member.1.level;
+        let total_xp = member.1.total_xp;
+        let mut user = sr::UserId {
+            0: member.0.parse::<u64>().unwrap(),
+        }
+        .to_user(&ctx.discord().http)
+        .await
+        .unwrap();
+
+        let mut user_name = user
+            .nick_in(&ctx.discord().http, server_id.parse::<u64>().unwrap())
+            .await
+            .clone();
+
+        if user_name == None {
+            user_name = Some(user.name.clone());
+        }
+
+        let user_name = user_name.unwrap();
+
+        levels_dict_resorted.insert(total_xp, (user_name, level.to_string()));
+    }
+
+    let mut levels_vec = Vec::from_iter(levels_dict_resorted);
+
+    levels_vec.sort_by(|a, b| {
+        if a.0 < b.0 {
+            Ordering::Greater
+        } else if a.0 == b.0 {
+            Ordering::Equal
+        } else {
+            Ordering::Less
+        }
+    });
+
+    while levels_vec.len() > 10 {
+        levels_vec.pop();
+    }
+
+    let mut embed = CreateEmbed(HashMap::new());
+
+    embed.title(format!(
+        "{}'s leaderboard",
+        ctx.clone().guild().unwrap().name
+    ));
+
+    for i in levels_vec {
+        embed.field(
+            i.1 .0,
+            format!("Level: {}\nTotal Xp: {}", i.1 .1, i.0),
+            false,
+        );
+    }
+
+    ctx.channel_id()
+        .send_message(&ctx.discord().http, |m| m.set_embed(embed))
+        .await?;
+
+    Ok(())
+}
+
+#[poise::command(prefix_command, aliases("givexp"))]
+pub async fn give_xp(
+    ctx: Context<'_>,
+    #[description = "Which user do you want to give xp. (Leave blank if you want to give yourself xp.)"]
+    mut user: Option<sr::User>,
+    #[description = "How much xp do you want to give?"] amount: u64,
+) -> Result<(), Error> {
+    let guild_id = ctx.guild_id().unwrap().to_string();
+    let mut levels_dict = open_server_levels();
+    let mut global_dict = levels_dict.get("global").unwrap().clone();
+    let mut server_dict = levels_dict.get(&guild_id).unwrap().clone();
+
+    if user == None {
+        user = Some(ctx.author().clone());
+    }
+    let user = user.unwrap();
+    let user_id = user.id.to_string();
+
+    let mut user_dict = server_dict.members.get(&user_id).unwrap().clone();
+    let mut user_global_dict = global_dict.members.get(&user_id).unwrap().clone();
+
+    user_dict.current_xp += amount;
+    user_dict.total_xp += amount;
+    user_global_dict.total_xp += amount;
+
+    while user_dict.current_xp >= user_dict.xp_needed {
+        if user_dict.current_xp > user_dict.xp_needed {
+            user_dict.current_xp = user_dict.current_xp - user_dict.xp_needed;
+        } else {
+            user_dict.current_xp = 0;
+        }
+
+        user_dict.level += 1;
+        user_global_dict.level += 1;
+        user_dict.xp_needed = 5 * (user_dict.level.pow(2)) + (50 * user_dict.level) + 100;
+    }
+
+    global_dict
+        .members
+        .insert(user_id.clone(), user_global_dict);
+
+    server_dict.members.insert(user_id.clone(), user_dict);
+
+    levels_dict.insert("global".to_string(), global_dict);
+    levels_dict.insert(guild_id.clone(), server_dict);
+
+    let buf = Vec::new();
+    let formatter = serde_json::ser::PrettyFormatter::with_indent(b"    ");
+    let mut ser = serde_json::Serializer::with_formatter(buf, formatter);
+    levels_dict.serialize(&mut ser).unwrap();
+
+    let mut levels_file = fs::File::create("./src/commands/level_system/levels.json").unwrap();
+
+    write!(
+        levels_file,
+        "{}",
+        String::from_utf8(ser.into_inner()).unwrap()
+    )
+    .unwrap();
+
+    ctx.say(format!(
+        "{} has given {} {} xp",
+        ctx.author_member().await.unwrap().display_name(),
+        user.name,
+        amount,
     ))
     .await?;
 
