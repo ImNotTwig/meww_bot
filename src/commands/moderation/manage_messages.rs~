@@ -23,7 +23,7 @@ pub async fn purge(
 
     ctx.discord()
         .http
-        .delete_message(channel_id.0, message_id)
+        .delete_message(channel_id, message_id.into(), None)
         .await?;
 
     let message = ctx
@@ -34,6 +34,7 @@ pub async fn purge(
         .await?;
 
     sleep(Duration::from_millis(5000)).await;
+
     message.delete(ctx).await?;
 
     Ok(())

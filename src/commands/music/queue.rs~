@@ -1,0 +1,51 @@
+use std::collections::BTreeMap;
+
+use crate::Context;
+use async_recursion::async_recursion;
+use songbird::{
+    input, Event, EventContext, EventHandler as VoiceEventHandler, SerenityInit, TrackEvent,
+};
+
+#[derive(Debug)]
+pub struct SongData {
+    pub title: String,
+    pub source: String,
+}
+
+#[derive(Debug)]
+pub struct Session {
+    pub guild_id: u64,
+    pub channel_id: u64,
+    pub queue: Queue,
+}
+
+#[derive(Debug)]
+pub struct Queue {
+    pub songs: BTreeMap<u32, SongData>,
+    pub current_song: u32,
+}
+
+impl Session {
+    pub fn new(server_id: u64) -> Session {
+        Session {
+            guild_id: server_id,
+            channel_id: 0,
+            queue: Queue {
+                songs: BTreeMap::new(),
+                current_song: 0,
+            },
+        }
+    }
+
+    #[async_recursion]
+    pub async fn next_in_queue(self, context: &Context) {
+        todo!();
+        // play the song then remove it
+        self.play_song(self.queue.current_song);
+        // then make it repeat the function when the song is over
+        self.queue.current_song + 1;
+        self.next_in_queue(context).await;
+    }
+
+    pub async fn play_song(self, song_place_in_q: u32) {}
+}

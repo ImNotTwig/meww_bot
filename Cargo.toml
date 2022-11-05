@@ -6,13 +6,20 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+async-recursion = "*"
 chrono = "*"
 dotenv = "*"
 fastrand = "*"
 json = "*"
+lazy_static = "*"
 poise = "*"
+reqwest = "*"
 serde = "*"
 serde_derive = "*"
 serde_json = "*"
 tokio = { version = "*", features = ["full", "macros", "rt-multi-thread"] }
 toml = "*"
+
+[dependencies.songbird]
+git = "https://github.com/serenity-rs/songbird"
+features = ["yt-dlp", "builtin-queue"]

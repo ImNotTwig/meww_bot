@@ -9,14 +9,13 @@ use std::collections::BTreeMap;
 use std::collections::HashMap;
 use std::fs;
 use std::io::Write;
-use std::ops::Deref;
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct ServerMember {
-    pub level: u64,
-    pub total_xp: u64,
-    pub current_xp: u64,
-    pub xp_needed: u64,
+    pub level: i64,
+    pub total_xp: i64,
+    pub current_xp: i64,
+    pub xp_needed: i64,
     pub can_gain_xp: bool,
 }
 
@@ -263,7 +262,7 @@ pub async fn leaderboard(ctx: Context<'_>) -> Result<(), Error> {
     for member in server_dict.members {
         let level = member.1.level;
         let total_xp = member.1.total_xp;
-        let mut user = sr::UserId {
+        let user = sr::UserId {
             0: member.0.parse::<u64>().unwrap(),
         }
         .to_user(&ctx.discord().http)
@@ -327,7 +326,7 @@ pub async fn give_xp(
     ctx: Context<'_>,
     #[description = "Which user do you want to give xp. (Leave blank if you want to give yourself xp.)"]
     mut user: Option<sr::User>,
-    #[description = "How much xp do you want to give?"] amount: u64,
+    #[description = "How much xp do you want to give?"] amount: i64,
 ) -> Result<(), Error> {
     let guild_id = ctx.guild_id().unwrap().to_string();
     let mut levels_dict = open_server_levels();
@@ -387,6 +386,78 @@ pub async fn give_xp(
         ctx.author_member().await.unwrap().display_name(),
         user.name,
         amount,
+    ))
+    .await?;
+
+    Ok(())
+}
+
+#[poise::command(prefix_command, aliases("removexp"))]
+pub async fn remove_xp(
+    ctx: Context<'_>,
+    #[description = "Which user do you want to remove xp from. (Leave blank if you want to remove xp from yourself.)"]
+    mut user: Option<sr::User>,
+    #[description = "How much xp do you want to remove?"] amount: i64,
+) -> Result<(), Error> {
+    let guild_id = ctx.guild_id().unwrap().to_string();
+    let mut levels_dict = open_server_levels();
+    let mut global_dict = levels_dict.get("global").unwrap().clone();
+    let mut server_dict = levels_dict.get(&guild_id).unwrap().clone();
+
+    if user == None {
+        user = Some(ctx.author().clone());
+    }
+    let user = user.unwrap();
+    let user_id = user.id.to_string();
+
+    let mut user_dict = server_dict.members.get(&user_id).unwrap().clone();
+    let mut user_global_dict = global_dict.members.get(&user_id).unwrap().clone();
+
+    user_dict.current_xp -= amount;
+    user_dict.total_xp -= amount;
+    user_global_dict.total_xp -= amount;
+
+    while user_dict.current_xp.is_negative() {
+        user_dict.level -= 1;
+        user_global_dict.level -= 1;
+        user_dict.xp_needed = 5 * (user_dict.level.pow(2)) + (50 * user_dict.level) + 100;
+        user_dict.current_xp += user_dict.xp_needed;
+    }
+    if user_dict.total_xp < 0 {
+        user_dict.total_xp = 0;
+    }
+    if user_global_dict.total_xp < 0 {
+        user_global_dict.total_xp = 0;
+    }
+
+    global_dict
+        .members
+        .insert(user_id.clone(), user_global_dict);
+
+    server_dict.members.insert(user_id.clone(), user_dict);
+
+    levels_dict.insert("global".to_string(), global_dict);
+    levels_dict.insert(guild_id.clone(), server_dict);
+
+    let buf = Vec::new();
+    let formatter = serde_json::ser::PrettyFormatter::with_indent(b"    ");
+    let mut ser = serde_json::Serializer::with_formatter(buf, formatter);
+    levels_dict.serialize(&mut ser).unwrap();
+
+    let mut levels_file = fs::File::create("./src/commands/level_system/levels.json").unwrap();
+
+    write!(
+        levels_file,
+        "{}",
+        String::from_utf8(ser.into_inner()).unwrap()
+    )
+    .unwrap();
+
+    ctx.say(format!(
+        "{} has removed {} xp from {}",
+        ctx.author_member().await.unwrap().display_name(),
+        amount,
+        user.name,
     ))
     .await?;
 

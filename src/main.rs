@@ -2,6 +2,7 @@ use chrono::{DateTime, Utc};
 use poise::serenity_prelude::Mentionable;
 use poise::serenity_prelude::{self as sr, GuildId};
 use serde::{Deserialize, Serialize};
+use songbird::SerenityInit;
 use std::collections::BTreeMap;
 use std::fs;
 use std::io::Write;
@@ -24,8 +25,10 @@ use moderation::muting;
 use moderation::muting::UnmutedTime;
 
 use commands::level_system::xp;
+use xp::ServerMember;
 
-use crate::commands::level_system::xp::ServerMember;
+use commands::music;
+use music::play_pause;
 
 #[derive(Deserialize, Serialize, Clone)]
 pub struct SpamCount {
@@ -66,7 +69,7 @@ async fn event_listener(
                 for mut member in global_levels.members.clone() {
                     member.1.total_xp = 0;
                     member.1.level = 0;
-                    global_levels.members.insert(member.0, member.1);
+                    global_levels.members.insert(member.0, member.1.clone());
                 }
                 // calculating the level and total_xp for global levels
                 for server in levels_dict.clone() {
@@ -92,6 +95,7 @@ async fn event_listener(
                         }
                     }
                 }
+                levels_dict.insert("global".to_string(), global_levels);
 
                 let buf = Vec::new();
                 let formatter = serde_json::ser::PrettyFormatter::with_indent(b"    ");
@@ -259,9 +263,9 @@ async fn event_listener(
                                 ..=config.level_system.xp_per_message[1],
                         );
 
-                        author_levels_data.current_xp += xp_gained as u64;
-                        author_levels_data.total_xp += xp_gained as u64;
-                        author_global_data.total_xp += xp_gained as u64;
+                        author_levels_data.current_xp += xp_gained as i64;
+                        author_levels_data.total_xp += xp_gained as i64;
+                        author_global_data.total_xp += xp_gained as i64;
 
                         while author_levels_data.current_xp >= author_levels_data.xp_needed {
                             if author_levels_data.current_xp > author_levels_data.xp_needed {
@@ -512,12 +516,22 @@ async fn main() {
         xp::levels(),
         xp::leaderboard(),
         xp::give_xp(),
+        xp::remove_xp(),
+        play_pause::play(),
+        play_pause::pause(),
+        play_pause::unpause(),
+        play_pause::queue(),
     ];
 
     let framework = poise::Framework::builder()
         .token(config.tokens.discord_token)
         .user_data_setup(|_, _, _| Box::pin(async move { Ok(()) }))
-        .intents(sr::GatewayIntents::non_privileged() | sr::GatewayIntents::MESSAGE_CONTENT)
+        .client_settings(|c| c.register_songbird())
+        .intents(
+            sr::GatewayIntents::non_privileged()
+                | sr::GatewayIntents::MESSAGE_CONTENT
+                | sr::GatewayIntents::GUILD_VOICE_STATES,
+        )
         .options(poise::FrameworkOptions {
             commands: functions,
             listener: |ctx, event, framework, user_data| {
