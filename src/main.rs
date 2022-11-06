@@ -91,7 +91,7 @@ async fn event_listener(
                                 global_levels.members.get(&member.0).unwrap().clone();
                             global_member.level += member.1.level;
                             global_member.total_xp += member.1.total_xp;
-                            global_levels.members.insert(member.0, member.1);
+                            global_levels.members.insert(member.0, global_member);
                         }
                     }
                 }

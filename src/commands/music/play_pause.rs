@@ -164,28 +164,12 @@ pub async fn unpause(ctx: Context<'_>) -> Result<(), Error> {
 
 #[poise::command(prefix_command, aliases("q"))]
 pub async fn queue(ctx: Context<'_>) -> Result<(), Error> {
-    let guild = ctx.guild().unwrap();
     let guild_id = ctx.clone().guild_id().unwrap();
-
-    let channel_id = guild
-        .voice_states
-        .get(&ctx.author().id)
-        .and_then(|voice_state| voice_state.channel_id);
-
-    let connect_to = match channel_id {
-        Some(channel) => channel,
-        None => {
-            ctx.say("Not in a voice channel").await.unwrap();
-            return Ok(());
-        }
-    };
 
     let manager = songbird::get(ctx.discord())
         .await
         .expect("Songbird Voice client placed in at initialisation.")
         .clone();
-
-    let _ = manager.join(guild_id, connect_to).await;
 
     if let Some(handler_lock) = manager.get(guild_id) {
         let handler = handler_lock.lock().await;

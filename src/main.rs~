@@ -29,7 +29,6 @@ use xp::ServerMember;
 
 use commands::music;
 use music::play_pause;
-use music::queue::*;
 
 #[derive(Deserialize, Serialize, Clone)]
 pub struct SpamCount {
